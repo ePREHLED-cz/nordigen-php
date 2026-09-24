@@ -37,6 +37,8 @@ class RequestHandler
         return new Client([
             "base_uri" => $this->baseUri,
             "headers" => $headers,
+            "timeout" => 10,
+            "connect_timeout" => 10,
         ]);
     }
 

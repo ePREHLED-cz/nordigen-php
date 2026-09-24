@@ -2,6 +2,7 @@
 
 namespace Nordigen\NordigenPHP\API;
 
+use GuzzleHttp\Exception\ConnectException;
 use Nordigen\NordigenPHP\API\Institution;
 use Nordigen\NordigenPHP\API\RequestHandler;
 use GuzzleHttp\ClientInterface;
@@ -207,5 +208,14 @@ class NordigenClient
         $this->requisitionLink = $requisitionLink;
 
         return $this;
+    }
+
+    public function testConnection(): bool
+    {
+        try {
+            return !empty($this->institution->getInstitutions());
+        } catch (ConnectException $e) {
+            return false;
+        }
     }
 }
