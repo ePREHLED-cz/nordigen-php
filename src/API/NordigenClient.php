@@ -16,15 +16,15 @@ class NordigenClient
     public EndUserAgreement $endUserAgreement;
     public Requisition $requisition;
 
-    private string $refreshToken;
+    private ?string $refreshToken = null;
     private string $requisitionLink;
 
     public function __construct(string $secretId, string $secretKey, ?ClientInterface $client = null)
     {
-        $this->requestHandler   = new RequestHandler(self::BASE_URL, $secretId, $secretKey, $client);
-        $this->institution      = new Institution($this->requestHandler);
+        $this->requestHandler = new RequestHandler(self::BASE_URL, $secretId, $secretKey, $client);
+        $this->institution = new Institution($this->requestHandler);
         $this->endUserAgreement = new EndUserAgreement($this->requestHandler);
-        $this->requisition      = new Requisition($this->requestHandler);
+        $this->requisition = new Requisition($this->requestHandler);
     }
 
     /**
@@ -45,12 +45,11 @@ class NordigenClient
      * The result will be an array containing the URL for user authentication and the IDs of the
      * newly created requisition and End-user agreement.
      * @param string $institutionIdentifier ID of the Institution.
+     * @param string $redirect The URI where the End-user will be redirected to after authentication.
      * @param int $maxHistoricalDays Maximum number of days of transaction data to retrieve. 90 by default.
      * @param int $accessValidForDays How long access to the end-user's account will be available. 90 days by default.
-     * @param string $endUserId The ID of the End-user in the client's system.
-     * @param string $reference Additional ID to identify the End-user. This value will be appended to the redirect.
-     * @param string $redirect The URI where the End-user will be redirected to after authentication.
-     * @param AccessScope[] $accessScope The requested access scope. All by default. See Enums\AccessScope for possible values.
+     * @param string|null $reference Additional ID to identify the End-user. This value will be appended to the redirect.
+     * @param array|null $accessScopes
      * @param string|null $userLanguage Language to use in views. Two-letter country code (ISO 639-1).
      * @param string|null $ssn SSN (social security number) field to verify ownership of the account.
      * @param bool|null $accountSelection Option to enable account selection view for the end user.
@@ -59,10 +58,10 @@ class NordigenClient
      * @return array
      */
     public function initSession(
-        string  $institutionIdentifier,
-        string  $redirect,
-        int     $maxHistoricalDays = 90,
-        int     $accessValidForDays = 90,
+        string $institutionIdentifier,
+        string $redirect,
+        int $maxHistoricalDays = 90,
+        int $accessValidForDays = 90,
         ?string $reference = null,
         ?array $accessScopes = ['details', 'balances', 'transactions'],
         ?string $userLanguage = null,
@@ -113,7 +112,7 @@ class NordigenClient
         ]);
         $json = json_decode($response->getBody()->getContents(), true);
         $this->setAccessToken($json["access"]);
-        $this->refreshToken = $json["refresh"];
+        $this->setRefreshToken($json["refresh"]);
         return $json;
     }
 
@@ -121,11 +120,17 @@ class NordigenClient
     /**
      * Refresh an access token.
      *
-     * @param string $refreshToken
+     * @param string|null $refreshToken
      * @return array
      */
-    public function refreshAccessToken($refreshToken): array
+    public function refreshAccessToken(?string $refreshToken = null): array
     {
+        $refreshToken = $refreshToken ?? $this->refreshToken;
+
+        if ($refreshToken === null) {
+            return $this->createAccessToken();
+        }
+
         $response = $this->requestHandler->post('token/refresh/', [
             'json' => [
                 'refresh' => $refreshToken
@@ -133,6 +138,7 @@ class NordigenClient
         ]);
         $json = json_decode($response->getBody()->getContents(), true);
         $this->setAccessToken($json["access"]);
+        $this->setRefreshToken($refreshToken);
         return $json;
     }
 
@@ -141,7 +147,7 @@ class NordigenClient
      *
      * @return string
      */
-    public function getAccessToken(): string
+    public function getAccessToken(): ?string
     {
         return $this->requestHandler->getAccessToken();
     }
@@ -149,6 +155,7 @@ class NordigenClient
     /**
      * Set the value of accessToken in the request handler.
      *
+     * @param $accessToken
      * @return  self
      */
     public function setAccessToken($accessToken): self
@@ -162,7 +169,7 @@ class NordigenClient
      *
      * @return string
      */
-    public function getRefreshToken(): string
+    public function getRefreshToken(): ?string
     {
         return $this->refreshToken;
     }
@@ -170,6 +177,7 @@ class NordigenClient
     /**
      * Set the value of refreshToken
      *
+     * @param $refreshToken
      * @return  self
      */
     public function setRefreshToken($refreshToken): self
@@ -191,6 +199,7 @@ class NordigenClient
     /**
      * Set the value of requisitionLink
      *
+     * @param $requisitionLink
      * @return  self
      */
     public function setRequisitionLink($requisitionLink): self

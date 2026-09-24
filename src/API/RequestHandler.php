@@ -3,42 +3,40 @@
 namespace Nordigen\NordigenPHP\API;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\ClientInterface;
 use Nordigen\NordigenPHP\Http\RequestHandlerTrait;
+use GuzzleHttp\ClientInterface;
 
 class RequestHandler
 {
     use RequestHandlerTrait;
 
-    private string $accessToken;
+    private ?string $accessToken = null;
     private array $authentication;
 
     public function __construct(string $baseUri, string $secretId, string $secretKey, ?ClientInterface $client)
     {
         $this->authentication = [$secretId, $secretKey];
         $this->baseUri = $baseUri;
-        $this->httpClient = $this->setHttpClient($client);
+        $this->httpClient = $client ?? $this->createHttpClient();
     }
 
 
     /**
      * Set headers for HttpClient
-     * @param ClientInterface $client
      *
+     * @param array<string,string> $headers
      * @return Client
      */
-    public function setHttpClient($client): Client
+    public function createHttpClient(array $headers = []): Client
     {
-        if($client !== NULL) {
-            return $client;
+        $headers['accept'] = 'application/json';
+        $headers['User-Agent'] = "Nordigen-PHP-v2";
+        if ($this->accessToken !== null) {
+            $headers['Authorization'] = 'Bearer ' . $this->accessToken;
         }
-
         return new Client([
             "base_uri" => $this->baseUri,
-            "headers" => [
-                "accept" => "application/json",
-                "User-Agent" => "Nordigen-PHP-v2"
-            ]
+            "headers" => $headers,
         ]);
     }
 
@@ -48,27 +46,21 @@ class RequestHandler
      *
      * @return string
      */
-    public function getAccessToken(): string
+    public function getAccessToken(): ?string
     {
         return $this->accessToken;
     }
 
     /**
      * Set existing access token.
-     * @param string $accessToken
+     * @param string|null $accessToken
      *
      * @return void
      */
-    public function setAccessToken(string $accessToken): void
+    public function setAccessToken(?string $accessToken): void
     {
         $this->accessToken = $accessToken;
-        $this->httpClient = new Client([
-            "base_uri" => $this->baseUri,
-            "headers" => [
-                "accept" => "application/json",
-                "Authorization" => "Bearer {$accessToken}"
-            ]
-        ]);
+        $this->httpClient = $this->createHttpClient();
     }
 
     /**
@@ -80,6 +72,4 @@ class RequestHandler
     {
         return $this->authentication;
     }
-
-
 }
